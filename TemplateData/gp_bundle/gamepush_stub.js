@@ -1,103 +1,174 @@
-/**
- * GamePush STUB
- * eponesh CDN bloklu oldugunda kullanilir (okul filtreleri vs.)
- * GamePushUnityInner.trigger() cagrilarini yakalar, Unity'ye bos mesajlar gonderir
+/* GamePush STUB — eponesh bypass
+ * Framework bu dosyayi yuklediginde window.onGPInit(fakeGP) cagirir
+ * GamePushUnityInner constructor bunlari bekliyor:
+ *   gp.player.on('change/sync/load/login/logout/fetch/unlock...')
+ *   gp.ads.showPreloader()
+ *   gp.player.ready  (Promise)
  */
-(function(window, urls, projectId, publicToken) {
+(function() {
   'use strict';
-  console.log('[GP Stub] GamePush stub loaded. Project:', projectId);
 
-  /* Minimal EventEmitter */
-  function Emitter() { this._events = {}; }
+  function Emitter() { this._h = {}; }
   Emitter.prototype.on = function(ev, fn) {
-    (this._events[ev] = this._events[ev] || []).push(fn); return this;
+    (this._h[ev] = this._h[ev] || []).push(fn); return this;
+  };
+  Emitter.prototype.off = function(ev, fn) {
+    if (this._h[ev]) this._h[ev] = this._h[ev].filter(function(f){ return f !== fn; });
+    return this;
   };
   Emitter.prototype.emit = function(ev) {
-    var args = Array.prototype.slice.call(arguments, 1);
-    var fns  = this._events[ev] || [];
-    for (var i = 0; i < fns.length; i++) fns[i].apply(this, args);
+    var args = [].slice.call(arguments, 1);
+    (this._h[ev] || []).forEach(function(f){ f.apply(null, args); });
     return this;
   };
 
-  /* Fake player */
+  /* player */
   var player = new Emitter();
-  player.isLoggedIn     = false;
-  player.hasAnyCredentials = false;
-  player.id             = '0';
-  player.name           = 'Guest';
-  player.avatar         = '';
-  player.getField       = function() { return ''; };
-  player.setField       = function() {};
-  player.getScore       = function() { return 0; };
-  player.get            = function(k) { try { return JSON.parse(localStorage.getItem('gp_'+k)||'null'); } catch(e){ return null; } };
-  player.set            = function(k,v){ try { localStorage.setItem('gp_'+k, JSON.stringify(v)); } catch(e){} };
-  player.sync           = function(){ setTimeout(function(){ player.emit('sync', true); }, 50); };
-  player.load           = function(){ setTimeout(function(){ player.emit('load',  true); }, 50); };
-  player.login          = function(){ setTimeout(function(){ player.emit('login', false); }, 50); };
-  player.logout         = function(){ setTimeout(function(){ player.emit('logout', true); }, 50); };
-
-  /* Fake ads */
-  var adv = new Emitter();
-  adv.showFullscreen = function(o) {
-    o = o || {};
-    if (o.onStart)   o.onStart();
-    if (o.onClose)   setTimeout(function(){ o.onClose(false); }, 100);
-    if (o.onComplete)setTimeout(function(){ o.onComplete();   }, 100);
+  player.ready = Promise.resolve(true);
+  player.isLoggedIn         = false;
+  player.hasAnyCredentials  = false;
+  player.id                 = '0';
+  player.name               = 'Guest';
+  player.avatar             = '';
+  player.isStub             = true;
+  player.getActiveAvatars   = function(){ return []; };
+  player.getField           = function(){ return ''; };
+  player.setField           = function(){};
+  player.getScore           = function(){ return 0; };
+  player.addScore           = function(){};
+  player.sync               = function(){ setTimeout(function(){ player.emit('sync', true); }, 10); };
+  player.load               = function(){ setTimeout(function(){ player.emit('load', true); }, 10); };
+  player.fetch              = function(){ return Promise.resolve(); };
+  player.login              = function(){
+    player.emit('login', false);
+    return Promise.resolve(false);
   };
-  adv.showRewarded = function(o) {
-    o = o || {};
-    if (o.onStart)   o.onStart();
-    /* Ödülü ver - okullarda gerçek reklam yok, stub her zaman ödül verir */
-    if (o.onReward)  setTimeout(function(){ o.onReward();   }, 300);
-    if (o.onClose)   setTimeout(function(){ o.onClose();    }, 400);
-    if (o.onComplete)setTimeout(function(){ o.onComplete(); }, 400);
+  player.logout             = function(){
+    player.emit('logout', true);
+    return Promise.resolve(true);
   };
-  adv.minimum = { fullscreen: 0, rewarded: 0 };
-  adv.isAdblockEnabled = false;
 
-  /* Diğer modüller */
-  var leaderboard = new Emitter();
-  leaderboard.open         = function(){};
-  leaderboard.fetchEntries = function(){ return Promise.resolve([]); };
-  leaderboard.setScore     = function(){ return Promise.resolve(); };
-
+  /* achievements */
   var achievements = new Emitter();
-  achievements.unlock = function(){ return Promise.resolve(); };
+  achievements.unlock          = function(){ return Promise.resolve(); };
+  achievements.has             = function(){ return false; };
+  achievements.getProgress     = function(){ return 0; };
+  achievements.fetch           = function(){ return Promise.resolve([]); };
 
+  /* leaderboard */
+  var leaderboard = new Emitter();
+  leaderboard.open             = function(){};
+  leaderboard.close            = function(){};
+  leaderboard.fetchEntries     = function(){ return Promise.resolve([]); };
+  leaderboard.fetchPlayerEntry = function(){ return Promise.resolve(null); };
+  leaderboard.setScore         = function(){ return Promise.resolve(); };
+  leaderboard.addScore         = function(){ return Promise.resolve(); };
+
+  /* ads */
+  var ads = new Emitter();
+  ads.isAdblockEnabled    = false;
+  ads.isStickyPlaying     = false;
+  ads.isFullscreenPlaying = false;
+  ads.isRewardedPlaying   = false;
+  ads.showPreloader = function(opts) {
+    opts = opts || {};
+    if (opts.onStart)   opts.onStart();
+    setTimeout(function(){
+      if (opts.onClose)   opts.onClose();
+      if (opts.onComplete)opts.onComplete();
+      ads.emit('preloader:close');
+      ads.emit('preloader:complete');
+    }, 100);
+  };
+  ads.showFullscreen = function(opts) {
+    opts = opts || {};
+    if (opts.onStart)   opts.onStart();
+    setTimeout(function(){
+      if (opts.onClose)   opts.onClose();
+      if (opts.onComplete)opts.onComplete();
+      ads.emit('fullscreen:close');
+    }, 100);
+  };
+  ads.showRewarded = function(opts) {
+    opts = opts || {};
+    if (opts.onStart)   opts.onStart();
+    setTimeout(function(){
+      if (opts.onReward)  opts.onReward();
+      if (opts.onClose)   opts.onClose();
+      if (opts.onComplete)opts.onComplete();
+      ads.emit('rewarded:reward');
+      ads.emit('rewarded:close');
+    }, 300);
+  };
+  ads.showSticky  = function(){};
+  ads.closeSticky = function(){};
+  ads.refreshSticky = function(){};
+  ads.minimum = { fullscreen: 0, rewarded: 0 };
+
+  /* socials */
   var socials = new Emitter();
+  socials.isSupported    = false;
+  socials.isSubscribed   = false;
+  socials.canSubscribe   = false;
+  socials.subscribe      = function(){ return Promise.resolve(false); };
+  socials.postToWall     = function(){ return Promise.resolve(false); };
+  socials.inviteFriends  = function(){ return Promise.resolve(false); };
 
+  /* payments */
   var payments = new Emitter();
-  payments.purchase = function(){ return Promise.reject('unavailable'); };
+  payments.isAvailable   = false;
+  payments.purchase      = function(){ return Promise.reject('unavailable'); };
+  payments.consume       = function(){ return Promise.reject('unavailable'); };
+  payments.has           = function(){ return false; };
 
-  /* GamePush global nesnesi */
-  var gp = {
-    player:       player,
-    adv:          adv,
-    leaderboard:  leaderboard,
-    achievements: achievements,
-    socials:      socials,
-    payments:     payments,
-    isReady:      false,
-    language:     'en',
-    lang:         'en',
-    on:           Emitter.prototype.on.bind(new Emitter()),
-    emit:         Emitter.prototype.emit.bind(new Emitter()),
-    init: function() { return Promise.resolve(gp); }
+  /* documents */
+  var documents = new Emitter();
+  documents.open = function(){};
+
+  /* gamesCollections */
+  var gamesCollections = new Emitter();
+
+  /* gameStart / gameStop */
+  var fakeGP = {
+    isReady:          true,
+    isDev:            false,
+    language:         'en',
+    lang:             'en',
+    country:          'us',
+    tld:              'com',
+    player:           player,
+    ads:              ads,
+    achievements:     achievements,
+    leaderboard:      leaderboard,
+    socials:          socials,
+    payments:         payments,
+    documents:        documents,
+    gamesCollections: gamesCollections,
+    on:               Emitter.prototype.on.bind(new Emitter()),
+    off:              Emitter.prototype.off.bind(new Emitter()),
+    emit:             Emitter.prototype.emit.bind(new Emitter()),
+    gameStart:        function(){ fakeGP.emit('game:start'); },
+    gameStop:         function(){ fakeGP.emit('game:stop'); },
+    ready:            Promise.resolve(true)
   };
 
-  window.gp = gp;
+  window.gp = fakeGP;
 
-  /* GamePushUnityInner bekliyorsa */
-  setTimeout(function() {
-    gp.isReady = true;
-    try {
-      if (window.unityInstance || window.myGameInstance) {
-        var inst = window.unityInstance || window.myGameInstance;
-        /* SDK hazir sinyali gonder */
-        inst.SendMessage('GamePushSDK', 'CallOnSDKReady');
+  console.log('[GP Stub] Loaded. Calling onGPInit...');
+
+  /* Framework'un beklediği callback'i cagir */
+  if (typeof window.onGPInit === 'function') {
+    try { window.onGPInit(fakeGP); } catch(e) { console.warn('[GP Stub] onGPInit error:', e); }
+  } else {
+    /* onGPInit henuz tanimlanmamissa bekle */
+    var _check = setInterval(function() {
+      if (typeof window.onGPInit === 'function') {
+        clearInterval(_check);
+        try { window.onGPInit(fakeGP); } catch(e) { console.warn('[GP Stub] onGPInit error:', e); }
       }
-    } catch(e) {}
-    console.log('[GP Stub] Ready');
-  }, 500);
+    }, 50);
+    /* 5sn sonra timeout */
+    setTimeout(function(){ clearInterval(_check); }, 5000);
+  }
 
-})(window, [], '__STUB__', '__STUB__');
+})();
